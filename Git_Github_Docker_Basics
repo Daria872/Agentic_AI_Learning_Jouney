@@ -1,0 +1,25 @@
+GIT BASIC COMMANDS: 
+
+Say you have created a project in your system and you wanna push it to github
+-> git init: To create a local/empty repository. Add files added, deleted, changed etc are monitored
+-> git status: To keep track of any changes 
+-> git add filename: Adds a file to the repository. This file enters the waiting area/Staging area. Only those files in teh staging area can enter github.
+-> git status: To check which files were in staging area or not. (untracked changes-> in red and not in staging area)
+-> git commit -m "message": It is used to keep track of the changes made to the repository by specifying description. Once, commited changes are permanantly changed to github.
+Remote: It is basically the github repository which is remote since it is not present in our system.
+-> git remote add origin https://github.com/ : It is used to link between local and github repository ; to specify where the code should be pushed i.e. to which repository
+-> git push -u origin main: To push the code to the github repository
+Branch: A branch in GitHub is an isolated workspace that lets you develop features, fix bugs, or test ideas without changing the main codebase.
+-> git checkout -b branchname: To create a new branch
+-> git checkout branchname: To switch between branches
+-> git clone url: To use a remote repository in local 
+
+GITHUB BASIC COMMANDS: 
+-> To create a repository
+-> To push code 
+git add . (add all changes)
+git commit -m "Initial commit"
+git remote add origin https://github.com
+git push -u origin main
+
+DOCKER BASIC COMMANDS:

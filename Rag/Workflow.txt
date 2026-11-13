@@ -1,0 +1,302 @@
+RAG IMPLEMENTATION GUIDE
+=======================
+
+This guide explains the sections of Implementation.py, how data moves through
+the program, and what each chunking option does.
+
+
+1. THE BIG PICTURE
+------------------
+
+RAG means Retrieval-Augmented Generation. The program first indexes local
+documents, then retrieves relevant pieces when the user asks a question.
+
+                    INDEXING (run at startup)
+
+  documents/*.txt, *.md
+          |
+          v
+  load_documents()
+          |
+          v
+  split_documents() chooses one chunking method
+          |
+          v
+  Ollama embedding model converts chunks into vectors
+          |
+          v
+  Chroma saves vectors + text + source metadata
+
+                    QUESTION ANSWERING
+
+  User question
+       |
+       v
+  Chroma finds the 4 most similar chunks
+       |
+       v
+  Question + retrieved chunks become the prompt context
+       |
+       v
+  Local Mistral generates the answer
+       |
+       v
+  Answer is printed
+
+
+2. FILES AND SETUP VALUES
+-------------------------
+
+The imports at the top provide:
+- Path: file and folder paths.
+- Document: text plus metadata such as its source file and Markdown heading.
+- Chroma: persistent vector database.
+- OllamaEmbeddings: creates vectors using nomic-embed-text.
+- ChatOllama: runs the local Mistral chat model.
+- Text splitters: manual, recursive, Markdown-heading, and semantic splitting.
+- json: reads the grouping plan returned by Mistral in agentic mode.
+
+Important settings:
+- DOCUMENTS_DIR: put source .txt and .md files here.
+- VECTOR_DB_DIR: Chroma database files are stored here.
+- EMBEDDING_MODEL: model used for vector creation and semantic splitting.
+- CHAT_MODEL: model used to answer questions and, in agentic mode, group text.
+- CHUNK_SIZE: target maximum chunk length in characters (800 by default).
+- CHUNK_OVERLAP: repeated text between recursive chunks (120 characters).
+- SPLIT_METHOD: selects the chunking method. It currently defaults to
+  "format_aware".
+- AGENT_ATOM_SIZE: small input units for agentic grouping (300 characters).
+- AGENT_MAX_UNITS_PER_REQUEST: at most 12 units sent to Mistral per request.
+
+The folder layout should look like:
+
+  Rag/
+    Implementation.py
+    Workflow.txt
+    documents/
+      handbook.md
+      notes.txt
+    chroma_db/              created when the database is built
+
+
+3. LOADING DOCUMENTS
+--------------------
+
+Function: load_documents()
+
+1. Checks that the documents folder exists.
+2. Searches it and its subfolders for .txt and .md files.
+3. Reads each file as UTF-8.
+4. Creates a LangChain Document for each file.
+5. Attaches the relative source path as metadata.
+6. Ignores empty files and reports an error if no usable files are found.
+
+Document shape:
+
+  Document
+    page_content = "The text from the file..."
+    metadata     = {"source": "documents/handbook.md"}
+
+Markdown chunking may add heading metadata, such as Header 1 or Header 2.
+Metadata travels with the chunk so results can still be traced to their source.
+
+
+4. CHUNKING OPTIONS
+-------------------
+
+The dispatcher is split_documents(). Change SPLIT_METHOD near the top of
+Implementation.py to choose a strategy:
+
+  SPLIT_METHOD = "manual"
+  SPLIT_METHOD = "recursive"
+  SPLIT_METHOD = "format_aware"
+  SPLIT_METHOD = "semantic"
+  SPLIT_METHOD = "agentic"
+
+The default is "format_aware".
+
+A. Manual
+  split_documents_manually()
+
+  Text --take 800 characters--> chunk 1
+       --move forward 680-----> chunk 2
+       --move forward 680-----> chunk 3
+
+  The 120-character overlap is CHUNK_OVERLAP. This simple method does not try
+  to keep sentences or paragraphs intact.
+
+B. Recursive
+  split_documents_recursively()
+
+  Try paragraph boundary
+          |
+          +-- too large? Try line boundary
+                    |
+                    +-- too large? Try word boundary
+                              |
+                              +-- too large? Split by characters
+
+  This uses LangChain's RecursiveCharacterTextSplitter and aims to keep natural
+  text boundaries while respecting CHUNK_SIZE and CHUNK_OVERLAP.
+
+C. Format-aware
+  split_documents_by_format()
+
+  Markdown (.md):
+      file -> split at # / ## / ### headings -> recursive splitting
+
+  Plain text (.txt):
+      file -> recursive splitting
+
+  Markdown heading names are stored as metadata, and the heading text remains
+  in the chunk.
+
+D. Semantic
+  split_documents_semantically_by_format()
+
+  Markdown (.md):
+      file -> split at headings -> compare text meaning with embeddings
+           -> create semantic chunks -> recursively cap chunk size
+
+  Plain text (.txt):
+      file -> compare text meaning with embeddings -> semantic chunks
+           -> recursively cap chunk size
+
+  SemanticChunker uses nomic-embed-text to identify likely topic changes.
+  Recursive splitting afterward is a size safeguard; it may subdivide a
+  semantic chunk that is longer than CHUNK_SIZE.
+
+E. Agentic
+  split_documents_agentically_by_format()
+
+  This option uses local Mistral to decide which adjacent text units belong
+  together. It does not ask Mistral to rewrite the source text.
+
+  One document (or one Markdown heading section)
+        |
+        v
+  Split into small units (up to 300 characters each)
+        |
+        v
+  Send up to 12 units to Mistral at a time
+        |
+        v
+  Mistral returns a JSON grouping plan, for example:
+        {"groups": [[0, 1], [2]]}
+        |
+        v
+  Validate that every index appears once, in order, and in adjacent groups
+        |
+        v
+  Reassemble the original units and recursively cap chunk size
+
+  group_units_with_agent() makes the request and validates the response. It
+  raises an error if the model returns invalid JSON, skips or repeats an index,
+  changes the order, or groups non-adjacent units. This protects source content
+  from being lost or reordered.
+
+
+5. BUILDING THE VECTOR DATABASE
+-------------------------------
+
+Function: build_vector_store()
+
+  OllamaEmbeddings(nomic-embed-text)
+        |                         ChatOllama(Mistral)
+        |                         created only for agentic mode
+        v
+  load_documents()
+        |
+        v
+  group documents by source file
+        |
+        v
+  split_documents(source documents, selected method)
+        |
+        +--> delete the previous Chroma entries for that source
+        |
+        v
+  add the new chunks to persistent Chroma
+
+The embedding model is needed for Chroma regardless of the chunking strategy.
+Semantic mode also uses it to choose boundaries. Agentic mode additionally uses
+Mistral to group units.
+
+
+6. ANSWERING A QUESTION
+-----------------------
+
+Function: main()
+
+  Start
+    |
+    +--> build_vector_store()
+    |
+    +--> create Mistral chat model and RAG prompt
+    |
+    +--> ask user for a question
+             |
+             +--> blank? ask again
+             |
+             +--> "exit" or "quit"? stop
+             |
+             +--> otherwise:
+                     1. similarity_search(question, k=4)
+                     2. join matching text and source names as context
+                     3. send context + question to Mistral
+                     4. print the response
+                     5. ask another question
+
+The prompt tells Mistral to answer only from the retrieved context and to say
+when the context does not contain the answer.
+
+
+7. HOW TO RUN
+-------------
+
+In Windows PowerShell:
+
+  conda create -n chunking python=3.11
+  conda activate chunking
+  python -m pip install langchain langchain-chroma langchain-ollama langchain-text-splitters langchain-experimental langchain-community
+
+Install and start Ollama, then download the models:
+
+  ollama pull nomic-embed-text
+  ollama pull mistral
+
+Add UTF-8 .txt or .md files under documents, choose SPLIT_METHOD if desired,
+then run:
+
+  python Implementation.py
+
+The current default uses format-aware splitting. To use the local LLM to choose
+groups, set SPLIT_METHOD to "agentic". OPENAI_API_KEY is not used by this local
+Ollama workflow.
+
+For the PDF-specific script, install its dependencies and run:
+
+  python -m pip install chromadb langchain-community langchain-text-splitters pypdf requests
+  ollama pull nomic-embed-text
+  ollama pull mistral
+  python AI_PDF.py
+
+Start Ollama first (open the app, or run "ollama serve" in a separate terminal).
+AI_PDF.py stores the persistent Chroma database in chroma_db. Its IDs use the
+PDF source, 1-based page number, and chunk number; rerunning updates changed
+chunks and removes stale chunks for those PDFs.
+
+
+8. QUICK TROUBLESHOOTING
+------------------------
+
+- "Create a documents directory...": create documents beside Implementation.py.
+- "No non-empty .txt or .md...": add supported files with text.
+- Ollama connection/model error: start Ollama and pull both named models.
+- Missing Python imports: activate the Conda environment and install the
+  packages listed above.
+- Agentic JSON/grouping error: the model did not return the required index
+  grouping. Check that the configured Mistral model is available, then retry.
+
+
+Ollama-> Manages and runs local LLMs on your computer

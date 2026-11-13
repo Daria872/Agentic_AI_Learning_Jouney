@@ -1,0 +1,81 @@
+In its most fundamental form, an agent consists of three core components:
+-> Model The LLM powering the agent’s reasoning and decision-making.
+-> Tools External functions or APIs the agent can use to take action.
+-> Instructions Explicit guidelines and guardrails defining how the agent behaves.
+
+Different models have different strengths and tradeoffs related to task complexity, latency, and cost.
+
+-> Set up evals to establish a performance baseline.
+-> Focus on meeting your accuracy target with the best models available.
+-> Optimize for cost and latency by replacing larger models with smaller ones where possible.
+
+Agents themselves can serve as tools for other agents—see the Manager Pattern in the Orchestration section.
+
+from agents import Agent, WebSearchTool, function_tool
+import datetime
+
+#Use functional tools
+@function_tool
+def save_results(output):
+    db.insert({
+        //Save the latest saved output along with time in database
+        "output": output,
+        "timestamp": datetime.datetime.now(),
+    })
+    return "File saved"
+
+search_agent = Agent(
+    name="Search agent",
+    instructions="Help the user search the internet and save results if asked.",
+    tools=[WebSearchTool(), save_results],
+)
+
+In general, orchestration patterns fall into two categories:
+-> Single-agent systems, where a single model equipped with appropriate tools and instructions executes workflows in a loop.
+-> Multi-agent systems, where workflow execution is distributed across multiple coordinated agents.
+
+from agents import Agent, Runner
+
+manager_agent = Agent(
+    name="manager_agent",
+    instructions=(
+        "You are a translation agent. You use tools given to you to translate. "
+        "If asked for multiple translations, you call the relevant tools."
+    ),
+    //Components of tools-> tool_name and tool_description
+    tools=[
+        spanish_agent.as_tool(
+            tool_name="translate_to_spanish",
+            tool_description="Translate the user's message to Spanish",
+        ),
+        french_agent.as_tool(
+            tool_name="translate_to_french",
+            tool_description="Translate the user's message to French",
+        ),
+        italian_agent.as_tool(
+            tool_name="translate_to_italian",
+            tool_description="Translate the user's message to Italian",
+        ),
+    ],
+)
+
+async def main():
+    msg = input("Translate 'hello' to Spanish, French and Italian for me!")
+
+    orchestrator_output = await Runner.run(
+        manager_agent,
+        msg,
+    )
+
+    for message in orchestrator_output.new_messages:
+        print(f"- Translation step: {message.content}")
+
+import OpenAI from "openai";
+const client = new OpenAI();
+
+const response = await client.responses.create({
+  model: "gpt-6-astra",
+  input: "Write a one-sentence bedtime story about a unicorn.",
+});
+
+console.log(response.output_text);        

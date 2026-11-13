@@ -1,0 +1,67 @@
+Here, a basic agent template is created using the google adk
+
+SETUP:
+Open the terminal
+-> pip install google-adk yfinance
+-> adk create app
+
+To run the contents of the app use command,
+-> adk run app
+
+We can integrate it with the web interface by using,
+-> adk web
+Other commands can be viewed in:
+adk --help
+
+  api_server           Starts a FastAPI server for agents.
+  conformance          Conformance testing tools for ADK.
+  create               Creates a new app in the current folder with prepopulated agent template.
+  deploy               Deploys agent to hosted environments.
+  eval                 Evaluates an agent given the eval sets.
+  eval_set             Manage Eval Sets.
+  generate_agent_card  Generates agent cards for all detected agents.
+  migrate              ADK migration commands.
+  optimize             Optimizes the root agent instructions using the GEPA optimizer.
+  run                  Runs an agent.
+  telemetry            Manage telemetry settings.
+  test                 Runs pytest on agent test JSON files under the specified folder.
+  web                  Starts a FastAPI server with Web UI for agents.
+
+  Eg: adk web
+  A url is provided 
+
+COURSE AND EMAIL TOOLS:
+The agent searches courses.json beside agent.py by default. Set
+COURSE_CATALOG_PATH to use another JSON file containing an array of course
+objects with fields such as code, name, and description.
+
+Email sending uses SMTP. Configure SMTP_HOST, SMTP_PORT (default 587),
+SMTP_USERNAME, SMTP_PASSWORD, and optionally SMTP_FROM (defaults to the SMTP
+username). Keep credentials in environment variables, not in source files.
+The agent must show the complete email draft and wait for an explicit YES from
+the user before sending it.
+
+  
+Deployment:
+-> Go to google cloud run
+-> Install Google CLI
+-> Open and type: gcloud auth login
+-> Then, adk deploy cloud_run app
+-> Click us-east4
+-> Click the link
+-> adk api_server
+
+ReACT
+Reasoning(Internal analysis)-> Act(Api calls)-> Observe(Results)->Adjust/Decide(Loop back to Reason)
+
+Three agent behaviour patterns:
+-> Sequential agents(one after another like an assembly line; predictable but rigid)
+-> Reactive agents(analyse what to do next)
+-> Planning agents(Sketch out the plan first and then execute)
+
+
+Building an AI Agent steps:
+-> pip install uv google-adk
+-> import os, llm, agent
+-> Save api keys in .env and load it as, from dotenv import load_dotenv
+-> For configuration, MODEL=os.getenv("MODEL","gemini-flash-latest")

@@ -14,7 +14,8 @@ Branch: A branch in GitHub is an isolated workspace that lets you develop featur
 -> git checkout branchname: To switch between branches
 -> git clone url: To use a remote repository in local 
 
-GITHUB BASIC COMMANDS: 
+GITHUB BASIC COMMANDS:
+
 -> To create a repository
 -> To push code 
 git add . (add all changes)
@@ -23,3 +24,79 @@ git remote add origin https://github.com
 git push -u origin main
 
 DOCKER BASIC COMMANDS:
+
+Image: A read-only template/package containing the application code, dependencies, libraries, runtime, and configuration needed to run an application.
+Container: A running (or stopped) isolated instance of a Docker image, where the application executes.
+docker run image: To run the entire application
+SETUP:
+-> Download docker for desktop
+-> Set up in the IDE using extension
+-> Set up the code structure
+-> Create the "dockerfile" and start the server by "npm install" and "npm run dev" 
+-> Commands:
+#Uses node version 22 as our base image
+FROM node:22
+#Goes to app directory
+WORKDIR /app
+#Copy package.json and package-lock.json
+copy package*.json ./
+#Install app dependencies
+RUN npm install
+#Copy the rest of the app into the container
+COPY . .
+#Set port environment variable
+ENV PORT=3000
+EXPOSE 3000
+#Run the app
+CMD ["npm","start"]
+-> Now, in the terminal docker built -t dockerimagename "-t-> tag name for image"
+-> Then, run the container by , docker run -p 3000:3000 containername -p->port forwarding and 3000->computer port; 3000->container port
+-> docker scout quickfile->analysis of dependencies and vulnerabilities if any and how to handle them 
+Multi-Container application:
+-> Having frontend, backend and database separately as containers
+-> There is necessity to run all these containers separately, so we use DOCKER COMPOSE[to connect all containers and run the full application]
+-> Create compose.yaml
+-> services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: password
+-> Docker Volume: is used to persist data even after containers are stopped or removed and share data between containers.
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: password
+# Start all containers
+docker compose up -d
+
+# Stop all containers
+docker compose down

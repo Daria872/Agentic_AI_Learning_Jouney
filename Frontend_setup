@@ -1,0 +1,37 @@
+-> Ensure that all the end points in FastAPI work properly
+-> In terminal, npm create vite@latest frontend --template react 
+-> For convenience go ahead with React+JS
+-> Then, cd frontend, npm install, npm run dev
+-> Once the frontend structure is created, under src add "components" folder and "api.js"
+
+-> In api.js,
+import axios from 'axios';
+
+// Create an instance of axios with the base URL
+const api = axios.create({
+  baseURL: "http://localhost:8000"  //Backend port 
+});
+
+// Export the Axios instance
+export default api;
+
+-> Under component, addFruits.jsx pick the code from the documentation 
+import React, { useEffect, useState } from 'react';
+//Use from other files
+import api from "../api.js"; 
+import AddFruitForm from './AddFruitForm';
+
+const FruitList = () => {
+  const [fruits, setFruits] = useState([]);
+
+  //To get/fetch a fruit simply use api.get which will connext to the backend endpoint through the axios file 
+  const fetchFruits = async () => {
+    try {
+      const response = await api.get('/fruits');
+      setFruits(response.data.fruits);
+    } catch (error) {
+      console.error("Error fetching fruits", error);
+    }
+  };
+->Now, run using npm run dev in terminal say it runs on 3000
+->In backend, main.py if the port number violates change it to say 3000 and view
